@@ -1,76 +1,122 @@
-#include <torch/extension.h>
-
+#include "editdistance.h"
 
 // https://github.com/roy-ht/editdistance
 template <typename scalar_t>
-static void wer_single_batch_frame(
+static void distance_single_batch_frame(
     scalar_t* const src, 
     scalar_t* const trg, 
-    int64_t* result,
+    int32_t* result,
+    int32_t* info,
     int64_t srcLen,
     int64_t trgLen) {
     
-    std::vector<std::vector<int64_t>> d(2, std::vector<int64_t>(trgLen+1));
+    std::vector<std::vector<int32_t>> d(2, std::vector<int32_t>(trgLen+1));
 
     d[0][0] = 0;
     d[1][0] = 1;
     for (int i = 0; i < trgLen + 1; i++) d[0][i] = i;
     for (int i = 1; i < srcLen + 1; i++) {
         for (int j = 1; j < trgLen + 1; j++) {
-            d[i&1][j] = min(min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
+            auto del = d[(i-1)&1][j] + 1;
+            auto ins = d[i&1][j-1] + 1;
+            auto sub = d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 2);
+
+            d[i&1][j] = std::min(std::min(del, ins), sub);
+
+            if (d[i&1][j] == del)
+            {
+               ++info[0];
+            } 
+            else if (d[i&1][j] == ins)
+            {
+                ++info[1];
+            } 
+            else 
+            {
+                ++info[2];
+            }
+            //d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
         }
     }
 
-    result = d[size1&1][size2];
+    *result = d[srcLen&1][trgLen];
 }
 
 template <typename scalar_t>
-static void wer_frame(
+static void distance_frame(
     scalar_t* const src, 
     scalar_t* const trg, 
-    int64_t* result,
+    int32_t* result,
+    int32_t* info,
     int64_t srcLen,
     int64_t trgLen, 
     int64_t numBatch) {
 
     at::parallel_for(0, numBatch, 0, [&](int64_t start, int64_t end) {
-          std::vector<int64_t> range(end);
-          std::iota(range.begin(), range.end(), start);
-          for (const auto batch : range) {
-            wer_single_batch_frame<scalar_t>(
+        for (const auto batch : c10::irange(start, end)) {
+            distance_single_batch_frame<scalar_t>(
                 src + batch * srcLen, 
                 trg + batch * trgLen,
-                result,
+                result + batch,
+                info + batch * 3,
                 srcLen, 
                 trgLen
             );
-          }
+        }
     });
 }
 
-Tensor wer(
-    at::Tensor src, 
-    at::Tensor trg){
+std::tuple<torch::Tensor, torch::Tensor> editdistance(
+    const torch::Tensor& src, 
+    const torch::Tensor& trg){
 
-    // all the checks are done here
-    auto numBatch = src.size(0);
-    auto srcLen = src.size(1);
-    auto trgLen = trg.size(1);
+    int64_t srcDims = src.ndimension();
+    int64_t trgDims = trg.ndimension();
 
-    Tensor result = at::empty({1});
+    TORCH_CHECK(srcDims == 2 || srcDims == 1, 
+                "editdistance: Expect 1D or 2D Tensor, got: ",
+                src.sizes());
 
-    AT_DISPATCH_FLOATING_TYPES(
-        src.scalar_type(),
-        "wer",
+    TORCH_CHECK(trgDims == 2 || trgDims == 1, 
+                "editdistance: Expect 1D or 2D Tensor, got: ",
+                trg.sizes());
+
+    auto src_ = src;
+    auto trg_ = trg; 
+    if (srcDims == 1)
+    {
+        src_ = src_.reshape({1, src_.size(0)});
+    }
+    if (trgDims == 1)
+    {
+        trg_ = trg_.reshape({1, trg_.size(0)});
+    }
+
+    auto numBatch = src_.size(0);
+    auto srcLen = src_.size(1);
+    auto trgLen = trg_.size(1);
+    
+    at::TensorOptions options(src_.device());
+    options = options.dtype(at::ScalarType::Int);
+
+    auto result = at::empty({numBatch, 1}, options);
+    auto info = at::zeros({numBatch, 3}, options);
+
+    AT_DISPATCH_ALL_TYPES(
+        src_.scalar_type(),
+        "editdistance",
         [&] {
-          wer_frame<scalar_t>(
-            src.data_ptr<scalar_t>(),
-            trg.data_ptr<scalar_t>(),
-            result.data_prt<int64_t>(),
+          distance_frame<scalar_t>(
+            src_.data_ptr<scalar_t>(),
+            trg_.data_ptr<scalar_t>(),
+            result.data_ptr<int32_t>(),
+            info.data_ptr<int32_t>(),
             srcLen, 
             trgLen,
             numBatch
           );
         }
     );
+
+    return std::make_tuple(result, info);
 }
