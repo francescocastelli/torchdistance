@@ -6,7 +6,6 @@ static void distance_single_batch_frame(
     scalar_t* const src, 
     scalar_t* const trg, 
     int32_t* result,
-    int32_t* info,
     int64_t srcLen,
     int64_t trgLen) {
     
@@ -17,25 +16,7 @@ static void distance_single_batch_frame(
     for (int i = 0; i < trgLen + 1; i++) d[0][i] = i;
     for (int i = 1; i < srcLen + 1; i++) {
         for (int j = 1; j < trgLen + 1; j++) {
-            auto del = d[(i-1)&1][j] + 1;
-            auto ins = d[i&1][j-1] + 1;
-            auto sub = d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 2);
-
-            d[i&1][j] = std::min(std::min(del, ins), sub);
-
-            if (d[i&1][j] == del)
-            {
-               ++info[0];
-            } 
-            else if (d[i&1][j] == ins)
-            {
-                ++info[1];
-            } 
-            else 
-            {
-                ++info[2];
-            }
-            //d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
+            d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
         }
     }
 
@@ -47,7 +28,6 @@ static void distance_frame(
     scalar_t* const src, 
     scalar_t* const trg, 
     int32_t* result,
-    int32_t* info,
     int64_t srcLen,
     int64_t trgLen, 
     int64_t numBatch) {
@@ -58,7 +38,6 @@ static void distance_frame(
                 src + batch * srcLen, 
                 trg + batch * trgLen,
                 result + batch,
-                info + batch * 3,
                 srcLen, 
                 trgLen
             );
@@ -66,7 +45,7 @@ static void distance_frame(
     });
 }
 
-std::tuple<torch::Tensor, torch::Tensor> editdistance(
+torch::Tensor editdistance(
     const torch::Tensor& src, 
     const torch::Tensor& trg){
 
@@ -100,7 +79,6 @@ std::tuple<torch::Tensor, torch::Tensor> editdistance(
     options = options.dtype(at::ScalarType::Int);
 
     auto result = at::empty({numBatch, 1}, options);
-    auto info = at::zeros({numBatch, 3}, options);
 
     AT_DISPATCH_ALL_TYPES(
         src_.scalar_type(),
@@ -110,7 +88,6 @@ std::tuple<torch::Tensor, torch::Tensor> editdistance(
             src_.data_ptr<scalar_t>(),
             trg_.data_ptr<scalar_t>(),
             result.data_ptr<int32_t>(),
-            info.data_ptr<int32_t>(),
             srcLen, 
             trgLen,
             numBatch
@@ -118,5 +95,5 @@ std::tuple<torch::Tensor, torch::Tensor> editdistance(
         }
     );
 
-    return std::make_tuple(result, info);
+    return result;
 }
