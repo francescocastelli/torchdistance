@@ -1,5 +1,5 @@
 #include "editdistance.h"
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("editdistance", &editdistance, "editdistance forward");
+TORCH_LIBRARY(editdistance, m) {
+  m.def("editdistance(Tensor self, Tensor other) -> Tensor");
 }

@@ -1,5 +1,4 @@
 #include <torch/extension.h>
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 
@@ -15,7 +14,7 @@ __global__ void distance_cuda_kernel(
     auto src_ = src + batch * srcLen;
     auto trg_ = trg + batch * trgLen;
     
-    int32_t* d;
+    int32_t** d;
     cudaMalloc(&d, 2 * (trgLen+1) * sizeof(int32_t));
     //std::vector<std::vector<int32_t>> d(2, std::vector<int32_t>(trgLen+1));
 
@@ -24,7 +23,7 @@ __global__ void distance_cuda_kernel(
     for (int i = 0; i < trgLen + 1; i++) d[0][i] = i;
     for (int i = 1; i < srcLen + 1; i++) {
         for (int j = 1; j < trgLen + 1; j++) {
-            d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
+            d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src_[i-1] == trg_[j-1] ? 0 : 1));
         }
     }
 
@@ -32,7 +31,7 @@ __global__ void distance_cuda_kernel(
     cudaFree(&d);
 }
 
-torch::Tensor editdistance_cuda(
+torch::Tensor editdistance_cuda_kernel(
     const torch::Tensor& src, 
     const torch::Tensor& trg) {
 
@@ -68,7 +67,7 @@ torch::Tensor editdistance_cuda(
     auto result = at::empty({numBatch, 1}, options);
 
     const int threads = 1;
-    const dim3 blocks(batch_size);
+    const dim3 blocks(numBatch);
 
     AT_DISPATCH_ALL_TYPES(
         src_.scalar_type(),
@@ -79,8 +78,7 @@ torch::Tensor editdistance_cuda(
             trg_.data_ptr<scalar_t>(),
             result.data_ptr<int32_t>(),
             srcLen, 
-            trgLen,
-            numBatch
+            trgLen
           );
         }
     );

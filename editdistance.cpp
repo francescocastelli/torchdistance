@@ -45,7 +45,7 @@ static void distance_frame(
     });
 }
 
-torch::Tensor editdistance(
+torch::Tensor editdistance_cpu(
     const torch::Tensor& src, 
     const torch::Tensor& trg){
 
@@ -96,4 +96,13 @@ torch::Tensor editdistance(
     );
 
     return result;
+}
+
+
+TORCH_LIBRARY_IMPL(editdistance, CPU, m) {
+  m.impl("editdistance", &editdistance_cpu);
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("editdistance", &editdistance_cpu, "editdistance forward");
 }
