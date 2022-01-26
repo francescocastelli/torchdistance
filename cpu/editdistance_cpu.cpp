@@ -50,46 +50,20 @@ static void distance_frame(
 
 torch::Tensor editdistance_cpu(
     const torch::Tensor& src, 
-    const torch::Tensor& trg){
+    const torch::Tensor& trg, 
+    torch::Tensor& result){
 
-    int64_t srcDims = src.ndimension();
-    int64_t trgDims = trg.ndimension();
-
-    TORCH_CHECK(srcDims == 2 || srcDims == 1, 
-                "editdistance: Expect 1D or 2D Tensor, got: ",
-                src.sizes());
-
-    TORCH_CHECK(trgDims == 2 || trgDims == 1, 
-                "editdistance: Expect 1D or 2D Tensor, got: ",
-                trg.sizes());
-
-    auto src_ = src;
-    auto trg_ = trg; 
-    if (srcDims == 1)
-    {
-        src_ = src_.reshape({1, src_.size(0)});
-    }
-    if (trgDims == 1)
-    {
-        trg_ = trg_.reshape({1, trg_.size(0)});
-    }
-
-    auto numBatch = src_.size(0);
-    auto srcLen = src_.size(1);
-    auto trgLen = trg_.size(1);
-    
-    at::TensorOptions options(src_.device());
-    options = options.dtype(at::ScalarType::Int);
-
-    auto result = at::empty({numBatch, 1}, options);
+    auto numBatch = src.size(0);
+    auto srcLen = src.size(1);
+    auto trgLen = trg.size(1);
 
     AT_DISPATCH_ALL_TYPES(
-        src_.scalar_type(),
+        src.scalar_type(),
         "editdistance_cpu",
         [&] {
           distance_frame<scalar_t>(
-            src_.data_ptr<scalar_t>(),
-            trg_.data_ptr<scalar_t>(),
+            src.data_ptr<scalar_t>(),
+            trg.data_ptr<scalar_t>(),
             result.data_ptr<int32_t>(),
             srcLen, 
             trgLen,

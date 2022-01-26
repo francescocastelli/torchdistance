@@ -37,38 +37,12 @@ __global__ void distance_cuda_kernel(
 
 torch::Tensor editdistance_cuda_kernel(
     const torch::Tensor& src, 
-    const torch::Tensor& trg) {
+    const torch::Tensor& trg, 
+    torch::Tensor& result) {
 
-    int64_t srcDims = src.ndimension();
-    int64_t trgDims = trg.ndimension();
-
-    TORCH_CHECK(srcDims == 2 || srcDims == 1, 
-                "editdistance: Expect 1D or 2D Tensor, got: ",
-                src.sizes());
-
-    TORCH_CHECK(trgDims == 2 || trgDims == 1, 
-                "editdistance: Expect 1D or 2D Tensor, got: ",
-                trg.sizes());
-
-    auto src_ = src;
-    auto trg_ = trg; 
-    if (srcDims == 1)
-    {
-        src_ = src_.reshape({1, src_.size(0)});
-    }
-    if (trgDims == 1)
-    {
-        trg_ = trg_.reshape({1, trg_.size(0)});
-    }
-
-    auto numBatch = src_.size(0);
-    auto srcLen = src_.size(1);
-    auto trgLen = trg_.size(1);
-    
-    at::TensorOptions options(src_.device());
-    options = options.dtype(at::ScalarType::Int);
-
-    auto result = at::empty({numBatch, 1}, options);
+    const auto numBatch = src.size(0);
+    const auto srcLen = src.size(1);
+    const auto trgLen = trg.size(1);
 
     const int threads = 1;
     const dim3 blocks(numBatch);
@@ -77,12 +51,12 @@ torch::Tensor editdistance_cuda_kernel(
     cudaMalloc(&d, numBatch * 2 * (trgLen+1) * sizeof(int));
 
     AT_DISPATCH_ALL_TYPES(
-        src_.scalar_type(),
+        src.scalar_type(),
         "editdistance_cuda",
         ([&] {
          distance_cuda_kernel<scalar_t><<<blocks, threads>>>(
-            src_.data<scalar_t>(),
-            trg_.data<scalar_t>(),
+            src.data<scalar_t>(),
+            trg.data<scalar_t>(),
             result.data<int>(),
 	    d,
             srcLen, 
