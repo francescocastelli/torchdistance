@@ -42,7 +42,7 @@ torch::Tensor editdistance(
     auto result = at::empty({numBatch, 1}, options);
 
     // dispatch
-    if (src.device() == torch::kCUDA)
+    if (src_.device().is_cuda())
     {
 	return editdistance_cuda(src_, trg_, result);
     }

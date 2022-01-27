@@ -14,20 +14,20 @@ __global__ void distance_cuda_kernel(
     int64_t trgLen) {
     
     const int batch = blockIdx.x;
+    int cols = (trgLen+1);
+
     auto src_ = src + batch * srcLen;
     auto trg_ = trg + batch * trgLen;
     auto result_ = result + batch;
-    auto d = dMatrix + batch;
+    auto d = dMatrix + (batch * cols * 2);
     
-    int cols = (trgLen+1);
-    //std::vector<std::vector<int32_t>> d(2, std::vector<int32_t>(trgLen+1));
-
     d[0] = 0;
     d[cols] = 1;
-    for (int i = 0; i < trgLen + 1; i++) d[i*cols] = i;
+    for (int i = 0; i < trgLen + 1; i++) d[i] = i;
     for (int i = 1; i < srcLen + 1; i++) {
         for (int j = 1; j < trgLen + 1; j++) {
-            d[(i&1)*cols + j] = std::min(std::min(d[((i-1)&1)*cols + j], d[(i&1)*cols + (j-1)]) + 1, d[((i-1)&1)*cols + (j-1)] + (src_[i-1] == trg_[j-1] ? 0 : 1));
+            d[(i&1)*cols + j] = std::min(std::min(d[((i-1)&1)*cols + j], d[(i&1)*cols + (j-1)]) + 1, 
+			    		 d[((i-1)&1)*cols + (j-1)] + (src_[i-1] == trg_[j-1] ? 0 : 1));
         }
     }
 
@@ -54,7 +54,7 @@ torch::Tensor editdistance_cuda_kernel(
         src.scalar_type(),
         "editdistance_cuda",
         ([&] {
-         distance_cuda_kernel<scalar_t><<<blocks, threads>>>(
+         distance_cuda_kernel<scalar_t><<<numBatch, threads>>>(
             src.data<scalar_t>(),
             trg.data<scalar_t>(),
             result.data<int>(),
