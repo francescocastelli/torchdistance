@@ -3,5 +3,6 @@
 
 torch::Tensor editdistance(
     const torch::Tensor& src, 
-    const torch::Tensor& trg);
+    const torch::Tensor& trg, 
+    int64_t padToken);
 

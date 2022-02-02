@@ -11,7 +11,8 @@ __global__ void distance_cuda_kernel(
     int* __restrict__ result,
     int* dMatrix,
     int64_t srcLen,
-    int64_t trgLen) {
+    int64_t trgLen, 
+    int64_t padToken) {
     
     const int batch = blockIdx.x;
     int cols = (trgLen+1);
@@ -20,6 +21,25 @@ __global__ void distance_cuda_kernel(
     auto trg_ = trg + batch * trgLen;
     auto result_ = result + batch;
     auto d = dMatrix + (batch * cols * 2);
+
+    // handle padding
+    for (int i=0; i < srcLen; i++)
+    {
+	    if (src[i] == padToken)
+	    {
+		    srcLen = i-1;
+		    break;
+	    }
+    }
+
+    for (int i=0; i < trgLen; i++)
+    {
+	    if (trg[i] == padToken)
+	    {
+		    trgLen = i-1;
+		    break;
+	    }
+    }
     
     d[0] = 0;
     d[cols] = 1;
@@ -38,7 +58,8 @@ __global__ void distance_cuda_kernel(
 torch::Tensor editdistance_cuda_kernel(
     const torch::Tensor& src, 
     const torch::Tensor& trg, 
-    torch::Tensor& result) {
+    torch::Tensor& result, 
+    int64_t padToken) {
 
     const auto numBatch = src.size(0);
     const auto srcLen = src.size(1);
@@ -60,7 +81,8 @@ torch::Tensor editdistance_cuda_kernel(
             result.data<int>(),
 	    d,
             srcLen, 
-            trgLen
+            trgLen, 
+	    padToken
           );
         }));
 
