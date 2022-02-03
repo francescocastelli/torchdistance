@@ -17,7 +17,7 @@ static void distance_single_batch_frame(
     {
 	    if (src[i] == padToken)
 	    {
-		    srcLen = i-1;
+		    srcLen = i;
 		    break;
 	    }
     }
@@ -26,7 +26,7 @@ static void distance_single_batch_frame(
     {
 	    if (trg[i] == padToken)
 	    {
-		    trgLen = i-1;
+		    trgLen = i;
 		    break;
 	    }
     }
