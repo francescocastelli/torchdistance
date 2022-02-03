@@ -28,7 +28,7 @@ class Tokenizer():
         self.vocabulary_len = len(self.char_dict)
 
 
-    def tokenize(self, seq: str, device):
+    def tokenize(self, seq: str, device='cpu'):
         r"""
            Used to tokenized the input sequence.
 

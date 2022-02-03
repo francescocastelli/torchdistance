@@ -46,7 +46,7 @@ class EditDistanceTest(unittest.TestCase):
         # hyp: [TAST]
 
         x = self.tokenizer.tokenize('test', device)
-        y = self.tokenizer.tokenize('tast', device)
+        y = self.tokenizer.tokenize('tesf', device)
 
         r = editdistance(x, y, padToken)
         self.assertEqual(r.item(), 1)
@@ -59,18 +59,18 @@ class EditDistanceTest(unittest.TestCase):
         # ref: [[TEST], [HELLO]]
         # hyp: [[TESTT], [HELLOO]]
 
-        ref = [self.tokenizer.tokenize('test', device), self.tokenizer.tokenize('hello', device)]
-        hyp = [self.tokenizer.tokenize('testt', device), self.tokenizer.tokenize('helloo', device)] 
+        ref = [self.tokenizer.tokenize('test'), self.tokenizer.tokenize('hello')]
+        hyp = [self.tokenizer.tokenize('testt'), self.tokenizer.tokenize('helloo')] 
         res = [1, 1]
 
         # padding
         x = pad_sequence(ref, batch_first=True, padding_value=padToken)
         y = pad_sequence(hyp, batch_first=True, padding_value=padToken)
 
+        x, y = x.to(device), y.to(device)
         pred = editdistance(x, y, padToken).to('cpu')
 
-        for r, p in zip(res, pred): 
-            self.assertEqual(r, p.item())
+        self.assertEqual(res, [p.item() for p in pred])
 
     @parameterized.expand([
         ['cpu'],
@@ -80,19 +80,40 @@ class EditDistanceTest(unittest.TestCase):
         # ref: [[TEST], [HELLO]]
         # hyp: [[TET], [HELO]]
 
-        ref = [self.tokenizer.tokenize('test', device), self.tokenizer.tokenize('hello', device)]
-        hyp = [self.tokenizer.tokenize('tet', device), self.tokenizer.tokenize('helo', device)] 
+        ref = [self.tokenizer.tokenize('test'), self.tokenizer.tokenize('hello')]
+        hyp = [self.tokenizer.tokenize('tet'), self.tokenizer.tokenize('helo')] 
         res = [1, 1]
 
         # padding
         x = pad_sequence(ref, batch_first=True, padding_value=padToken)
         y = pad_sequence(hyp, batch_first=True, padding_value=padToken)
 
+        x, y = x.to(device), y.to(device)
         pred = editdistance(x, y, padToken).to('cpu')
 
-        for r, p in zip(res, pred): 
-            self.assertEqual(r, p.item())
+        self.assertEqual(res, [p.item() for p in pred])
 
+
+    @parameterized.expand([
+        ['cpu'],
+        ['cuda:0']
+    ])
+    def test_batch_sub(self, device):
+        # ref: [[TEST], [HELLO]]
+        # hyp: [[TERT], [HELJO]]
+
+        ref = [self.tokenizer.tokenize('test'), self.tokenizer.tokenize('hello')]
+        hyp = [self.tokenizer.tokenize('tesf'), self.tokenizer.tokenize('helll')] 
+        res = [1, 1]
+
+        # padding
+        x = pad_sequence(ref, batch_first=True, padding_value=padToken)
+        y = pad_sequence(hyp, batch_first=True, padding_value=padToken)
+
+        x, y = x.to(device), y.to(device)
+        pred = editdistance(x, y, padToken).to('cpu')
+
+        self.assertEqual(res, [p.item() for p in pred])
 
 if __name__ == "__main__":
     unittest.main()
