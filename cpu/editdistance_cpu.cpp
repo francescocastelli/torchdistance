@@ -73,12 +73,15 @@ static void distance_frame(
 torch::Tensor editdistance_cpu(
     const torch::Tensor& src, 
     const torch::Tensor& trg, 
-    torch::Tensor& result, 
     int64_t padToken){
 
     auto numBatch = src.size(0);
     auto srcLen = src.size(1);
     auto trgLen = trg.size(1);
+
+    at::TensorOptions options(src.device());
+    options = options.dtype(at::ScalarType::Int);
+    auto result = at::empty({numBatch, 1}, options);
 
     AT_DISPATCH_ALL_TYPES(
         src.scalar_type(),
@@ -97,4 +100,8 @@ torch::Tensor editdistance_cpu(
     );
 
     return result;
+}
+
+TORCH_LIBRARY_IMPL(editdistance, CPU, m) {
+  m.impl("editdistance", editdistance_cpu);
 }
