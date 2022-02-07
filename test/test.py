@@ -3,7 +3,7 @@ import unittest
 import json
 from torch.nn.utils.rnn import pad_sequence
 from parameterized import parameterized
-from editdistance import editdistance
+from torchdistance import editdistance
 from utils import Tokenizer, padToken
 
 _devices = ['cpu', 'cuda:0'] if torch.cuda.is_available() else ['cpu']
