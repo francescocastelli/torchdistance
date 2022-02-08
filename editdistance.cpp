@@ -27,7 +27,6 @@ torch::Tensor editdistance(
         trg_ = trg_.reshape({1, trg_.size(0)});
     }
 
-    auto numBatch = src_.size(0);
     TORCH_CHECK(src_.size(0) == trg_.size(0), 
 	        "editdistance: expected src and trg to have same batch size");
 
