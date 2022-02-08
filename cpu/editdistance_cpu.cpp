@@ -21,7 +21,6 @@ static void distance_single_batch_frame(
 		    break;
 	    }
     }
-
     for (int i=0; i < trgLen; i++)
     {
 	    if (trg[i] == padToken)
@@ -31,18 +30,34 @@ static void distance_single_batch_frame(
 	    }
     }
 
-    std::vector<std::vector<int32_t>> d(2, std::vector<int32_t>(trgLen+1));
+    // one or both strings are null
+    if (srcLen == 0) 
+    {
+	    *result = trgLen; 
+	    return;
+    }
+    else if (trgLen == 0) 
+    {
+	    *result = srcLen; 
+	    return;
+    }
+
+    auto src_ = src, trg_ = trg;
+    auto srcLen_ = srcLen, trgLen_ = trgLen;
+    if (trgLen < srcLen) src_ = trg, trg_ = src, srcLen_ = trgLen, trgLen_ = srcLen;
+
+    std::vector<std::vector<int32_t>> d(2, std::vector<int32_t>(trgLen_+1));
 
     d[0][0] = 0;
     d[1][0] = 1;
-    for (int i = 1; i < trgLen + 1; i++) d[0][i] = i;
-    for (int i=1; i < srcLen + 1; i++) {
-        for (int j=1; j < trgLen + 1; j++) {
-            d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src[i-1] == trg[j-1] ? 0 : 1));
+    for (int i = 1; i < trgLen_ + 1; i++) d[0][i] = i;
+    for (int i=1; i < srcLen_ + 1; i++) {
+        for (int j=1; j < trgLen_ + 1; j++) {
+            d[i&1][j] = std::min(std::min(d[(i-1)&1][j], d[i&1][j-1]) + 1, d[(i-1)&1][j-1] + (src_[i-1] == trg_[j-1] ? 0 : 1));
         }
     }
 
-    *result = d[srcLen&1][trgLen];
+    *result = d[srcLen_&1][trgLen_];
 }
 
 template <typename scalar_t>
@@ -87,7 +102,7 @@ torch::Tensor editdistance_cpu(
         src.scalar_type(),
         "editdistance_cpu",
         [&] {
-          distance_frame<scalar_t>(
+            distance_frame<scalar_t>(
             src.data_ptr<scalar_t>(),
             trg.data_ptr<scalar_t>(),
             result.data_ptr<int32_t>(),

@@ -17,15 +17,15 @@ __global__ void distance_cuda_kernel(
     const int batch = blockIdx.x;
     int cols = trgLen+1;
 
-    auto src_ = src + batch * srcLen;
-    auto trg_ = trg + batch * trgLen;
+    auto srcBatch = src + batch * srcLen;
+    auto trgBatch = trg + batch * trgLen;
     auto result_ = result + batch;
     auto d = dMatrix + (batch * (trgLen+1) * 2);
 
     // handle padding
     for (int i=0; i < srcLen; i++)
     {
-	    if (src_[i] == padToken)
+	    if (srcBatch[i] == padToken)
 	    {
 		    srcLen = i;
 		    break;
@@ -34,24 +34,40 @@ __global__ void distance_cuda_kernel(
 
     for (int i=0; i < trgLen; i++)
     {
-	    if (trg_[i] == padToken)
+	    if (trgBatch[i] == padToken)
 	    {
 		    trgLen = i;
 		    break;
 	    }
     }
 
+    // one or both strings are null
+    if (srcLen == 0) 
+    {
+	    *result = trgLen; 
+	    return;
+    }
+    else if (trgLen == 0) 
+    {
+	    *result = srcLen; 
+	    return;
+    }
+
+    auto src_ = srcBatch, trg_ = trgBatch;
+    auto srcLen_ = srcLen, trgLen_ = trgLen;
+    if (trgLen < srcLen) src_ = trgBatch, trg_ = srcBatch, srcLen_ = trgLen, trgLen_ = srcLen;
+
     d[0] = 0;
     d[cols] = 1;
-    for (int i = 0; i < trgLen + 1; i++) d[i] = i;
-    for (int i = 1; i < srcLen + 1; i++) {
-        for (int j = 1; j < trgLen + 1; j++) {
+    for (int i = 0; i < trgLen_ + 1; i++) d[i] = i;
+    for (int i = 1; i < srcLen_ + 1; i++) {
+        for (int j = 1; j < trgLen_ + 1; j++) {
             d[(i&1)*cols + j] = std::min(std::min(d[((i-1)&1)*cols + j], d[(i&1)*cols + (j-1)]) + 1, 
 			    		 d[((i-1)&1)*cols + (j-1)] + (src_[i-1] == trg_[j-1] ? 0 : 1));
         }
     }
 
-    *result_ = d[(srcLen&1)*cols + trgLen];
+    *result_ = d[(srcLen_&1)*cols + trgLen_];
 }
 }
 
@@ -79,10 +95,10 @@ torch::Tensor editdistance_cuda_kernel(
             src.data<scalar_t>(),
             trg.data<scalar_t>(),
             result.data<int>(),
-	        d,
+	    d,
             srcLen, 
             trgLen, 
-	        padToken);
+	    padToken);
         }));
 
     cudaFree(&d);

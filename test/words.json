@@ -1,6 +1,18 @@
 [
 	{
 		"ref": "test",
+		"hyp": "",
+		"type": "del",
+		"error": 4
+	},
+	{
+		"ref": "",
+		"hyp": "test",
+		"type": "ins",
+		"error": 4
+	},
+	{
+		"ref": "test",
 		"hyp": "tesst",
 		"type": "ins",
 		"error": 1
@@ -25,14 +37,14 @@
 	},
 	{
 		"ref": ["test", "hello"],
-		"hyp": ["tet", "helo"],
+		"hyp": ["t", "helo"],
 		"type": "del",
-		"error": [1, 1]
+		"error": [3, 1]
 	},
 	{
 		"ref": ["test", "hello"],
-		"hyp": ["tesg", "hsllo"],
+		"hyp": ["tesf", "h2llf"],
 		"type": "sub",
-		"error": [1, 1]
+		"error": [1, 2]
 	}
 ]
