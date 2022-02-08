@@ -2,6 +2,14 @@
 
 namespace {
 
+template <typename scalar_t>
+int64_t handlePadLen(scalar_t* str, int64_t strLen, int64_t padToken) {
+    for (int i=0; i < strLen; i++)
+	    if (str[i] == padToken) return i;
+
+    return strLen;
+}
+
 // https://github.com/roy-ht/editdistance
 template <typename scalar_t>
 static void distance_single_batch_frame(
@@ -13,34 +21,12 @@ static void distance_single_batch_frame(
     int64_t padToken) {
 
     // handle padding
-    for (int i=0; i < srcLen; i++)
-    {
-	    if (src[i] == padToken)
-	    {
-		    srcLen = i;
-		    break;
-	    }
-    }
-    for (int i=0; i < trgLen; i++)
-    {
-	    if (trg[i] == padToken)
-	    {
-		    trgLen = i;
-		    break;
-	    }
-    }
+    srcLen = handlePadLen(src, srcLen, padToken);
+    trgLen = handlePadLen(trg, trgLen, padToken);
 
-    // one or both strings are null
-    if (srcLen == 0) 
-    {
-	    *result = trgLen; 
-	    return;
-    }
-    else if (trgLen == 0) 
-    {
-	    *result = srcLen; 
-	    return;
-    }
+    // base case
+    if (srcLen == 0) { *result = trgLen; return; }
+    if (trgLen == 0) { *result = srcLen; return; }
 
     auto src_ = src, trg_ = trg;
     auto srcLen_ = srcLen, trgLen_ = trgLen;

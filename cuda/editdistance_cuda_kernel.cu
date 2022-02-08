@@ -4,6 +4,15 @@
 
 namespace {
 
+// TODO: this can be parallelize using a gpu
+template <typename scalar_t>
+__device__ int64_t handlePadLen(scalar_t* str, int64_t strLen, int64_t padToken) {
+    for (int i=0; i < strLen; i++)
+	    if (str[i] == padToken) return i;
+
+    return strLen;
+}
+
 template <typename scalar_t>
 __global__ void distance_cuda_kernel(
     scalar_t* const __restrict__ src, 
@@ -23,35 +32,12 @@ __global__ void distance_cuda_kernel(
     auto d = dMatrix + (batch * (trgLen+1) * 2);
 
     // handle padding
-    for (int i=0; i < srcLen; i++)
-    {
-	    if (srcBatch[i] == padToken)
-	    {
-		    srcLen = i;
-		    break;
-	    }
-    }
+    srcLen = handlePadLen(srcBatch, srcLen, padToken);
+    trgLen = handlePadLen(trgBatch, trgLen, padToken);
 
-    for (int i=0; i < trgLen; i++)
-    {
-	    if (trgBatch[i] == padToken)
-	    {
-		    trgLen = i;
-		    break;
-	    }
-    }
-
-    // one or both strings are null
-    if (srcLen == 0) 
-    {
-	    *result = trgLen; 
-	    return;
-    }
-    else if (trgLen == 0) 
-    {
-	    *result = srcLen; 
-	    return;
-    }
+    // base case
+    if (srcLen == 0) { *result = trgLen; return; }
+    if (trgLen == 0) { *result = srcLen; return; }
 
     auto src_ = srcBatch, trg_ = trgBatch;
     auto srcLen_ = srcLen, trgLen_ = trgLen;
