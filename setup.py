@@ -4,6 +4,7 @@ from setuptools import setup, Extension
 from torch.utils import cpp_extension
 
 ext_name = 'torchdistance'
+version = '0.1'
 
 # check if cuda is available
 if torch.cuda.is_available():
@@ -20,5 +21,6 @@ else:
     
 setup(name=ext_name,
       ext_modules=ext_modules,
+      version=version,
       cmdclass={'build_ext': cpp_extension.BuildExtension}
 )
