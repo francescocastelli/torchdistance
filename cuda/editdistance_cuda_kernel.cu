@@ -4,7 +4,7 @@
 
 namespace {
 
-// TODO: this can be parallelize using a gpu
+// TODO: this can probabliy be parallelized using a gpu
 template <typename scalar_t>
 __device__ int64_t handlePadLen(scalar_t* str, int64_t strLen, int64_t padToken) {
     for (int i=0; i < strLen; i++)
@@ -18,18 +18,15 @@ __global__ void distance_cuda_kernel(
     scalar_t* const __restrict__ src, 
     scalar_t* const __restrict__ trg, 
     int* __restrict__ result,
-    int* dMatrix,
     int64_t srcLen,
     int64_t trgLen, 
     int64_t padToken) {
     
     const int batch = blockIdx.x;
-    int cols = trgLen+1;
 
     auto srcBatch = src + batch * srcLen;
     auto trgBatch = trg + batch * trgLen;
     auto result_ = result + batch;
-    auto d = dMatrix + (batch * (trgLen+1) * 2);
 
     // handle padding
     srcLen = handlePadLen(srcBatch, srcLen, padToken);
@@ -43,6 +40,10 @@ __global__ void distance_cuda_kernel(
     auto srcLen_ = srcLen, trgLen_ = trgLen;
     if (trgLen < srcLen) src_ = trgBatch, trg_ = srcBatch, srcLen_ = trgLen, trgLen_ = srcLen;
 
+    int cols = trgLen_+1;
+    // TODO: cudaMalloc is probably better, but first we need to fix the lengths
+    auto d = new int[2*cols];
+
     d[0] = 0;
     d[cols] = 1;
     for (int i = 0; i < trgLen_ + 1; i++) d[i] = i;
@@ -54,6 +55,7 @@ __global__ void distance_cuda_kernel(
     }
 
     *result_ = d[(srcLen_&1)*cols + trgLen_];
+    delete(d);
 }
 }
 
@@ -70,9 +72,6 @@ torch::Tensor editdistance_cuda_kernel(
     const int threads = 1;
     const dim3 blocks(numBatch);
 
-    int* d;
-    cudaMalloc(&d, numBatch * 2 * (trgLen+1) * sizeof(int));
-
     AT_DISPATCH_ALL_TYPES(
         src.scalar_type(),
         "editdistance_cuda",
@@ -81,12 +80,10 @@ torch::Tensor editdistance_cuda_kernel(
             src.data<scalar_t>(),
             trg.data<scalar_t>(),
             result.data<int>(),
-	    d,
             srcLen, 
             trgLen, 
 	    padToken);
         }));
 
-    cudaFree(&d);
     return result;
 }
