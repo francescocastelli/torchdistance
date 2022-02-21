@@ -1,8 +1,11 @@
 #include <torch/extension.h> 
 #include <cuda.h>
 #include <cuda_runtime.h>
+
+#ifdef DEBUG
 #include "utils.cuh"
 #include <iostream>
+#endif
 
 namespace {
 
@@ -93,7 +96,7 @@ torch::Tensor editdistance_cuda_kernel(
         }));
 
 #ifdef DEBUG 
-    std::cout << "GPU Timing = " << timerGPU.GetCounter() << " ms" << std::endl;
+    std::cout << "GPU Timing = " << timerGPU.GetCounter() << " ms  " << std::flush;
 #endif
 
     return result;

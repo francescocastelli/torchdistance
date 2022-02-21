@@ -1,5 +1,10 @@
 #include <torch/extension.h> 
 
+#ifdef DEBUG
+#include <chrono>
+#include <iostream>
+#endif
+
 namespace {
 
 template <typename scalar_t>
@@ -84,6 +89,10 @@ torch::Tensor editdistance_cpu(
     options = options.dtype(at::ScalarType::Int);
     auto result = at::empty({numBatch, 1}, options);
 
+#ifdef DEBUG
+    auto t1 = std::chrono::high_resolution_clock::now();
+#endif
+
     AT_DISPATCH_ALL_TYPES(
         src.scalar_type(),
         "editdistance_cpu",
@@ -99,6 +108,13 @@ torch::Tensor editdistance_cpu(
           );
         }
     );
+
+#ifdef DEBUG
+    auto t2 = std::chrono::high_resolution_clock::now();
+    std::cout << "CPU timing = "
+              << std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()
+              << " us  " << std::flush;
+#endif
 
     return result;
 }
