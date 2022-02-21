@@ -1,6 +1,8 @@
 #include <torch/extension.h> 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include "utils.cuh"
+#include <iostream>
 
 namespace {
 
@@ -72,6 +74,11 @@ torch::Tensor editdistance_cuda_kernel(
     const int threads = 1;
     const dim3 blocks(numBatch);
 
+#ifdef DEBUG 
+    TimingGPU timerGPU;
+    timerGPU.StartCounter(); 
+#endif
+
     AT_DISPATCH_ALL_TYPES(
         src.scalar_type(),
         "editdistance_cuda",
@@ -84,6 +91,10 @@ torch::Tensor editdistance_cuda_kernel(
             trgLen, 
 	    padToken);
         }));
+
+#ifdef DEBUG 
+    std::cout << "GPU Timing = " << timerGPU.GetCounter() << " ms" << std::endl;
+#endif
 
     return result;
 }
