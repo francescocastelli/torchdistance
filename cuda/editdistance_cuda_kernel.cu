@@ -1,6 +1,7 @@
 #include <torch/extension.h> 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <c10/cuda/CUDAFunctions.h>
 
 #ifdef DEBUG
 #include "utils.cuh"
@@ -76,6 +77,10 @@ torch::Tensor editdistance_cuda_kernel(
 
     const int threads = 1;
     const dim3 blocks(numBatch);
+
+    // see https://github.com/pytorch/pytorch/issues/21819
+    // to avoid random errors when executing on cuda:1 we need to set the device manually
+    c10::cuda::set_device(static_cast<c10::DeviceIndex>(src.device().index()));
 
 #ifdef DEBUG 
     TimingGPU timerGPU;

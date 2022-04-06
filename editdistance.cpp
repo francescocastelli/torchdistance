@@ -19,6 +19,11 @@ torch::Tensor editdistance(
     TORCH_CHECK(srcDims == trgDims, 
                 "editdistance: Expect src and trg to have the same number of dimensions");
 
+    TORCH_CHECK(src.device() == trg.device(), 
+	       "source and target tensor must be on the same device, got ",
+	       "src on device ", src.device(),
+	       " and trg on device ", trg.device());
+
     auto src_ = src;
     auto trg_ = trg; 
     if (srcDims == 1)
